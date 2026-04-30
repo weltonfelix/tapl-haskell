@@ -1,6 +1,8 @@
 module TypeChecker where
 
 import AST
+import Control.Monad.State
+import Control.Monad.Except (throwError)
 
 -- Either is a pre-defined data type in Haskell.
 -- It is often used to deal with computations that might fail, and
@@ -22,11 +24,23 @@ import AST
 --
 -- Our design is to benefit from the Either monad to deal with
 -- the situation that a type checker might eventually fail.
+--
+-- In the symply typed lambda calculos, computations might not
+-- only fail, but also manipulate a state. In our case, the
+-- state is the type environment (or type context); a sequence
+-- of tuples (Name, Type).
+--
+-- Since the type checker deals with two kinds of side effects
+-- (errors and state), we can use the monad transformer StateT
+-- to combine both the State and Either monads.
+--
+-- The state monad has the operations 'get' (to get the environment) and
+-- 'put' (to update the environment).
 
-type Res = Either String
+type Env = [(Name, Type)]
+type Err = Either String
 
-throw :: String -> Either String a
-throw = Left
+type Res a = StateT Env Err a
 
 checker :: Expr -> Res Type
 checker expr = case expr of
@@ -38,10 +52,31 @@ checker expr = case expr of
     checker e2 >>= \t2 ->
     checker e3 >>= \t3 ->
     if t1 == TBool
-    then if t2 == t3 then return t2 else throw ("then/else branches have different types: " ++ show t2 ++ " vs " ++ show t3)
-    else throw ("condition of if must be Bool, got " ++ show t1)
+    then if t2 == t3 then return t2 else throwError ("then/else branches have different types: " ++ show t2 ++ " vs " ++ show t3)
+    else throwError ("condition of if must be Bool, got " ++ show t1)
 
   Zero -> return TNat
-  Succ e -> checker e >>= \t -> if t == TNat then return TNat else throw ("succ expects Nat, got " ++ show t)
-  Pred e -> checker e >>= \t -> if t == TNat then return TNat else throw ("pred expects Nat, got " ++ show t)
-  IsZero e -> checker e >>= \t -> if t == TNat then return TBool else throw ("isZero expects Nat, got " ++ show t)
+  Succ e -> checker e >>= \t -> if t == TNat then return TNat else throwError ("succ expects Nat, got " ++ show t)
+  Pred e -> checker e >>= \t -> if t == TNat then return TNat else throwError ("pred expects Nat, got " ++ show t)
+  IsZero e -> checker e >>= \t -> if t == TNat then return TBool else throwError ("isZero expects Nat, got " ++ show t)
+
+  Var x -> do
+    env <- get
+    case lookup x env of
+      Nothing -> throwError ("variable not in scope: " ++ x)
+      Just t -> return t
+
+  Abs (x, t1) e -> do
+    env <- get             -- obtains the environment from the state
+    put $ (x, t1) : env      -- updates the state with a new environment
+    t2 <- checker e        -- checker for 'e' in the new environment
+    put env                -- restores the environment
+    return $ t1 `TArrow` t2
+
+  App e1 e2 -> do
+    t1 <- checker e1
+    t2 <- checker e2
+
+    case t1 of
+      (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
+      _ -> throwError ("expected a function type, got " ++ show t1)

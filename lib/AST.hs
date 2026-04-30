@@ -1,5 +1,7 @@
 module AST where
 
+type Name = String
+
 data Expr = ETrue
           | EFalse
           | If {cond :: Expr, exprThen :: Expr, exprElse :: Expr}
@@ -7,14 +9,19 @@ data Expr = ETrue
           | Succ Expr
           | Pred Expr
           | IsZero Expr
+          | Var Name                  -- x               vars in Lambda Calculus
+          | Abs (Name, Type) Expr     -- (\x:T . expr)   abstraction in Lambda Calculus
+          | App Expr Expr             -- t1 t2           application in Lambda Calculus
      deriving (Eq, Show)
 
 data Value = VTrue
            | VFalse
            | VZero
            | VSucc Value
+           | VAbs (Name, Type) Expr
      deriving (Eq, Show)
 
 data Type = TBool
           | TNat
+          | Type `TArrow` Type
      deriving (Eq, Show)
