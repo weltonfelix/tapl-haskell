@@ -81,3 +81,28 @@ checker expr = case expr of
     case t1 of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
+
+  Inl e t -> do
+    t1' <- checker e
+    case t of
+      (t1 `TSum` _t2) -> if t1' == t1 then return t else throwError ("type mismatch: expected " ++ show t1 ++ ", got " ++ show t1')
+      _ -> throwError ("expected a sum type, got " ++ show t)
+  
+  Inr e t -> do
+    t2' <- checker e
+    case t of
+      (_t1 `TSum` t2) -> if t2' == t2 then return t else throwError ("type mismatch: expected " ++ show t2 ++ ", got " ++ show t2')
+      _ -> throwError ("expected a sum type, got " ++ show t)
+
+  Case e (xl, el) (xr, er) -> do
+    t <- checker e
+    case t of
+      (tl `TSum` tr) -> do
+        env <- get
+        put $ (xl, tl) : env
+        tl' <- checker el
+        put $ (xr, tr) : env
+        tr' <- checker er
+        put env
+        if tl' == tr' then return tl' else throwError ("type mismatch: expected both " ++ show t ++ ", got " ++ show tl' ++ " and " ++ show tr')
+      _ -> throwError ("expected a sum type, got " ++ show t)

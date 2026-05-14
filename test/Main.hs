@@ -151,6 +151,60 @@ testAppArgMismatch = TestCase $
     Left _  -> return ()
     Right t -> assertFailure ("expected type error, got " ++ show t)
 
+-- Inl (well-typed)
+testInl :: Test
+testInl = TestCase $
+  assertEqual "inl zero as Nat + Bool : Nat + Bool"
+    (Right (TNat `TSum` TBool))
+    (run (Inl Zero (TNat `TSum` TBool)))
+
+-- Inl (ill-typed)
+testInlTypeMismatch :: Test
+testInlTypeMismatch = TestCase $
+  case run (Inl ETrue (TNat `TSum` TBool)) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type mismatch error, got " ++ show t)
+
+-- Inr (well-typed)
+testInr :: Test
+testInr = TestCase $
+  assertEqual "inr true as Nat + Bool : Nat + Bool"
+    (Right (TNat `TSum` TBool))
+    (run (Inr ETrue (TNat `TSum` TBool)))
+
+-- Inr (ill-typed)
+testInrTypeMismatch :: Test
+testInrTypeMismatch = TestCase $
+  case run (Inr Zero (TNat `TSum` TBool)) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type mismatch error, got " ++ show t)
+
+-- Case (well-typed)
+testCase :: Test
+testCase = TestCase $
+  assertEqual "case inl zero as Nat + Bool of inl x => x | inr y => false : Nat"
+    (Right TNat)
+    (run (Case (Inl Zero (TNat `TSum` TBool))
+              ("x", Var "x")
+              ("y", Zero)))
+
+-- Case (ill-typed)
+testCaseNotASum :: Test
+testCaseNotASum = TestCase $
+  case run (Case Zero
+              ("x", Var "x")
+              ("y", Zero)) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+testCaseTypeMismatch :: Test
+testCaseTypeMismatch = TestCase $
+  case run (Case (Inl Zero (TNat `TSum` TBool))
+              ("x", Var "x")
+              ("y", ETrue)) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type mismatch error, got " ++ show t)
+
 tests :: Test
 tests = TestList
   [ TestLabel "ETrue"                testTrue
@@ -179,6 +233,13 @@ tests = TestList
   , TestLabel "App returns Bool"     testAppReturnsBool
   , TestLabel "App not a function"   testAppNotAFunction
   , TestLabel "App arg mismatch"     testAppArgMismatch
+  , TestLabel "Inl"     testInl
+  , TestLabel "Inl type mismatch"    testInlTypeMismatch
+  , TestLabel "Inr"     testInr
+  , TestLabel "Inr type mismatch"    testInrTypeMismatch
+  , TestLabel "Case"    testCase
+  , TestLabel "Case not a sum"    testCaseNotASum
+  , TestLabel "Case type mismatch"    testCaseTypeMismatch
   ]
 
 main :: IO ()
