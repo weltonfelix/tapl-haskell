@@ -82,6 +82,14 @@ checker expr = case expr of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
 
+  Let x e1 e2 -> do
+    env <- get                   -- salva Γ
+    t1  <- checker e1            -- Γ ⊢ t₁ : T₁
+    put $ (x, t1) : env          -- Γ' = Γ, x:T₁
+    t2  <- checker e2            -- Γ' ⊢ t₂ : T₂
+    put env                      -- restaura Γ
+    return t2                    -- tipo do let é T₂
+
   Inl e t -> do
     t1' <- checker e
     case t of
