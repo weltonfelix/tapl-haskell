@@ -205,6 +205,38 @@ testCaseTypeMismatch = TestCase $
     Left _ -> return ()
     Right t -> assertFailure ("expected type mismatch error, got " ++ show t)
 
+-- Let (well-typed)
+testLetNat :: Test
+testLetNat = TestCase $
+  assertEqual "let x = zero in succ x : TNat"
+    (Right TNat)
+    (run (Let "x" Zero (Succ (Var "x"))))
+
+testLetBool :: Test
+testLetBool = TestCase $
+  assertEqual "let x = true in x : TBool"
+    (Right TBool)
+    (run (Let "x" ETrue (Var "x")))
+
+testLetShadow :: Test
+testLetShadow = TestCase $
+  assertEqual "let x = zero in let x = true in x : TBool"
+    (Right TBool)
+    (run (Let "x" Zero (Let "x" ETrue (Var "x"))))
+
+-- Let (ill-typed)
+testLetBodyError :: Test
+testLetBodyError = TestCase $
+  case run (Let "x" ETrue (Succ (Var "x"))) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+testLetScopeLeaks :: Test
+testLetScopeLeaks = TestCase $
+  case run (App (Let "x" ETrue (Var "x")) (Var "x")) of
+    Left _  -> return ()
+    Right t -> assertFailure ("x should not be in scope outside let, got " ++ show t)
+
 tests :: Test
 tests = TestList
   [ TestLabel "ETrue"                testTrue
@@ -240,6 +272,11 @@ tests = TestList
   , TestLabel "Case"    testCase
   , TestLabel "Case not a sum"    testCaseNotASum
   , TestLabel "Case type mismatch"    testCaseTypeMismatch
+  , TestLabel "Let Nat"              testLetNat
+  , TestLabel "Let Bool"             testLetBool
+  , TestLabel "Let shadow"           testLetShadow
+  , TestLabel "Let body error"       testLetBodyError
+  , TestLabel "Let scope leaks"      testLetScopeLeaks
   ]
 
 main :: IO ()

@@ -15,6 +15,7 @@ data Expr = ETrue
           | Inl Expr Type
           | Inr Expr Type
           | Case Expr (Name, Expr) (Name, Expr)
+          | Let Name Expr Expr
      deriving (Eq, Show)
 
 data Value = VTrue
