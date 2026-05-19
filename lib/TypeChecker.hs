@@ -173,3 +173,18 @@ checker expr = case expr of
         else throwError ("tuple index out of bounds: " ++ show i)
 
       _ -> throwError ("expected tuple type, got " ++ show t)
+
+  -- T-RCD
+  Record fields -> do
+    typedFields <- mapM (\(l, e) -> checker e >>= \t -> return (l, t)) fields
+    return (TRecord typedFields)
+
+  -- T-PROJ
+  RecordProj e l -> do
+    t <- checker e
+    case t of
+      TRecord fields ->
+        case lookup l fields of
+          Just tl -> return tl
+          Nothing -> throwError ("label not found in record type: " ++ l)
+      _ -> throwError ("expected a record type, got " ++ show t)
