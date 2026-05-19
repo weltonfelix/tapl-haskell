@@ -112,7 +112,7 @@ checker expr = case expr of
         put $ (xr, tr) : env
         tr' <- checker er
         put env
-        if tl' == tr' then return tl' else throwError ("type mismatch: expected both " ++ show t ++ ", got " ++ show tl' ++ " and " ++ show tr')
+        if tl' == tr' then return tl' else throwError ("type mismatch: case branches have different types: left has " ++ show tl' ++ ", right has " ++ show tr')
       _ -> throwError ("expected a sum type, got " ++ show t)
 
   Tuple es -> do
