@@ -156,8 +156,6 @@ checker expr = case expr of
                   then return bt
                   else throwError ("case branches have different types: " ++ show branchTypes)
       _ -> throwError ("expected a variant type, got " ++ show t)
-        if tl' == tr' then return tl' else throwError ("type mismatch: case branches have different types: left has " ++ show tl' ++ ", right has " ++ show tr')
-      _ -> throwError ("expected a sum type, got " ++ show t)
 
   Tuple es -> do
     ts <- mapM checker es
