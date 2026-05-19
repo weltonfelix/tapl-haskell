@@ -114,3 +114,18 @@ checker expr = case expr of
         put env
         if tl' == tr' then return tl' else throwError ("type mismatch: expected both " ++ show t ++ ", got " ++ show tl' ++ " and " ++ show tr')
       _ -> throwError ("expected a sum type, got " ++ show t)
+
+  Tuple es -> do
+    ts <- mapM checker es
+    return (TTuple ts)
+
+  Proj i e -> do
+    t <- checker e
+
+    case t of
+      TTuple ts ->
+        if i >= 0 && i < length ts
+        then return (ts !! i)
+        else throwError ("tuple index out of bounds: " ++ show i)
+
+      _ -> throwError ("expected tuple type, got " ++ show t)

@@ -237,6 +237,52 @@ testLetScopeLeaks = TestCase $
     Left _  -> return ()
     Right t -> assertFailure ("x should not be in scope outside let, got " ++ show t)
 
+-- Tuples (well-typed)
+testTuple :: Test
+testTuple = TestCase $
+  assertEqual "{true,0,false}"
+    (Right (TTuple [TBool, TNat, TBool]))
+    (run (Tuple [ETrue, Zero, EFalse]))
+
+testSingletonTuple :: Test
+testSingletonTuple = TestCase $
+  assertEqual "{0}"
+    (Right (TTuple [TNat]))
+    (run (Tuple [Zero]))
+
+testEmptyTuple :: Test
+testEmptyTuple = TestCase $
+  assertEqual "{}"
+    (Right (TTuple []))
+    (run (Tuple []))
+
+-- Projection (well-typed)
+testProjection :: Test
+testProjection = TestCase $
+  assertEqual "proj 1 {true,0,false}"
+    (Right TNat)
+    (run (Proj 1 (Tuple [ETrue, Zero, EFalse])))
+
+-- Projection (ill-typed)
+testProjectionOutOfBounds :: Test
+testProjectionOutOfBounds = TestCase $
+  case run (Proj 10 (Tuple [ETrue])) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+testProjectionNonTuple :: Test
+testProjectionNonTuple = TestCase $
+  case run (Proj 0 ETrue) of
+    Left _ -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+-- Nested Tuple (well-typed)
+testNestedTuple :: Test
+testNestedTuple = TestCase $
+  assertEqual "{{0,true},false}"
+    (Right (TTuple [TTuple [TNat, TBool], TBool]))
+    (run (Tuple [Tuple [Zero, ETrue], EFalse]))
+
 tests :: Test
 tests = TestList
   [ TestLabel "ETrue"                testTrue
@@ -277,6 +323,13 @@ tests = TestList
   , TestLabel "Let shadow"           testLetShadow
   , TestLabel "Let body error"       testLetBodyError
   , TestLabel "Let scope leaks"      testLetScopeLeaks
+  , TestLabel "Tuple"                     testTuple
+  , TestLabel "Singleton Tuple"          testSingletonTuple
+  , TestLabel "Empty Tuple"              testEmptyTuple
+  , TestLabel "Projection"               testProjection
+  , TestLabel "Projection Out Of Bounds" testProjectionOutOfBounds
+  , TestLabel "Projection Non Tuple"     testProjectionNonTuple
+  , TestLabel "Nested Tuple" testNestedTuple
   ]
 
 main :: IO ()

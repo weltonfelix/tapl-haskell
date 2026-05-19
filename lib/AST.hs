@@ -15,6 +15,8 @@ data Expr = ETrue
           | Inl Expr Type
           | Inr Expr Type
           | Case Expr (Name, Expr) (Name, Expr)
+          | Tuple [Expr]
+          | Proj Int Expr
           | Let Name Expr Expr
      deriving (Eq, Show)
 
@@ -31,4 +33,5 @@ data Type = TBool
           | TNat
           | Type `TArrow` Type
           | Type `TSum` Type
+          | TTuple [Type]
      deriving (Eq, Show)
