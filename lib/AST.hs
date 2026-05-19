@@ -18,6 +18,8 @@ data Expr = ETrue
           | Tuple [Expr]
           | Proj Int Expr
           | Let Name Expr Expr
+          | Tag Name Expr Type            -- <l=t> as T      (variant tagging)
+          | CaseVariant Expr [(Name, Name, Expr)]  -- case t of <li=xi>=>ti  (variant case)
      deriving (Eq, Show)
 
 data Value = VTrue
@@ -27,11 +29,13 @@ data Value = VTrue
            | VAbs (Name, Type) Expr
            | VInl Value Type
            | VInr Value Type
+           | VTag Name Value Type         -- <l=v> as T
      deriving (Eq, Show)
 
 data Type = TBool
           | TNat
           | Type `TArrow` Type
           | Type `TSum` Type
+          | TVariant [(Name, Type)]       -- <l1:T1, l2:T2, ...>
           | TTuple [Type]
      deriving (Eq, Show)

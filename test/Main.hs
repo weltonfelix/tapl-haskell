@@ -237,6 +237,86 @@ testLetScopeLeaks = TestCase $
     Left _  -> return ()
     Right t -> assertFailure ("x should not be in scope outside let, got " ++ show t)
 
+-- <physical=zero> as <physical:Nat, virtual:Bool>  ->  <physical:Nat, virtual:Bool>
+testTagWellTyped :: Test
+testTagWellTyped = TestCase $
+  assertEqual "<physical=zero> as <physical:Nat, virtual:Bool>"
+    (Right (TVariant [("physical", TNat), ("virtual", TBool)]))
+    (run (Tag "physical" Zero (TVariant [("physical", TNat), ("virtual", TBool)])))
+
+-- <virtual=true> as <physical:Nat, virtual:Bool> -> <physical:Nat, virtual:Bool>
+testTagSecondLabel :: Test
+testTagSecondLabel = TestCase $
+  assertEqual "<virtual=true> as <physical:Nat, virtual:Bool>"
+    (Right (TVariant [("physical", TNat), ("virtual", TBool)]))
+    (run (Tag "virtual" ETrue (TVariant [("physical", TNat), ("virtual", TBool)])))
+
+-- <physical=true> as <physical:Nat, ...> -> type mismatch 
+testTagTypeMismatch :: Test
+testTagTypeMismatch = TestCase $
+  case run (Tag "physical" ETrue (TVariant [("physical", TNat), ("virtual", TBool)])) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type mismatch, got " ++ show t)
+
+-- label not present in the variant type
+testTagUnknownLabel :: Test
+testTagUnknownLabel = TestCase $
+  case run (Tag "unknown" Zero (TVariant [("physical", TNat)])) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected label-not-found error, got " ++ show t)
+
+-- annotation is not a variant type
+testTagNotVariantAnnotation :: Test
+testTagNotVariantAnnotation = TestCase $
+  case run (Tag "l" Zero TNat) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected error: annotation is not a variant type, got " ++ show t)
+
+-- case (<none=unit> as <none:Unit, some:Nat>) of
+--   <none=u> => false
+--   <some=v> => iszero v
+-- → TBool
+testCaseVariantWellTyped :: Test
+testCaseVariantWellTyped = TestCase $
+  let optNat = TVariant [("none", TBool), ("some", TNat)]
+      scrutinee = Tag "none" EFalse optNat
+  in assertEqual "case <none=false> as <none:Bool, some:Nat> of <none=u>=>u | <some=v>=>iszero v"
+    (Right TBool)
+    (run (CaseVariant scrutinee
+           [ ("none", "u", Var "u")
+           , ("some", "v", IsZero (Var "v"))
+           ]))
+
+-- branches return different types → error
+testCaseVariantBranchMismatch :: Test
+testCaseVariantBranchMismatch = TestCase $
+  let optNat = TVariant [("none", TBool), ("some", TNat)]
+      scrutinee = Tag "none" EFalse optNat
+  in case run (CaseVariant scrutinee
+                [ ("none", "u", Var "u")       -- TBool
+                , ("some", "v", Var "v")        -- TNat
+                ]) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected branch mismatch error, got " ++ show t)
+
+-- scrutinee is not a variant type
+testCaseVariantNotVariant :: Test
+testCaseVariantNotVariant = TestCase $
+  case run (CaseVariant Zero [("l", "x", Var "x")]) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected error: not a variant, got " ++ show t)
+
+-- case labels don't match variant labels
+testCaseVariantLabelMismatch :: Test
+testCaseVariantLabelMismatch = TestCase $
+  let varT = TVariant [("a", TNat), ("b", TBool)]
+      scrutinee = Tag "a" Zero varT
+  in case run (CaseVariant scrutinee
+                [ ("a", "x", Var "x")
+                , ("wrong", "y", ETrue)
+                ]) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected label mismatch error, got " ++ show t)
 -- Tuples (well-typed)
 testTuple :: Test
 testTuple = TestCase $
@@ -323,6 +403,15 @@ tests = TestList
   , TestLabel "Let shadow"           testLetShadow
   , TestLabel "Let body error"       testLetBodyError
   , TestLabel "Let scope leaks"      testLetScopeLeaks
+  , TestLabel "Tag well-typed"              testTagWellTyped
+  , TestLabel "Tag second label"            testTagSecondLabel
+  , TestLabel "Tag type mismatch"           testTagTypeMismatch
+  , TestLabel "Tag unknown label"           testTagUnknownLabel
+  , TestLabel "Tag not variant annotation"  testTagNotVariantAnnotation
+  , TestLabel "CaseVariant well-typed"      testCaseVariantWellTyped
+  , TestLabel "CaseVariant branch mismatch" testCaseVariantBranchMismatch
+  , TestLabel "CaseVariant not variant"     testCaseVariantNotVariant
+  , TestLabel "CaseVariant label mismatch"  testCaseVariantLabelMismatch
   , TestLabel "Tuple"                     testTuple
   , TestLabel "Singleton Tuple"          testSingletonTuple
   , TestLabel "Empty Tuple"              testEmptyTuple
