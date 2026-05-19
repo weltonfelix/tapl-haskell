@@ -115,7 +115,7 @@ checker expr = case expr of
         if tl' == tr' then return tl' else throwError ("type mismatch: expected both " ++ show t ++ ", got " ++ show tl' ++ " and " ++ show tr')
       _ -> throwError ("expected a sum type, got " ++ show t)
 
-  -- T-Variant: Γ ⊢ <lj=tj> as <li:Ti> : <li:Ti>
+  -- T-Variant
   Tag lj tj varT -> do
     tj' <- checker tj
     case varT of
