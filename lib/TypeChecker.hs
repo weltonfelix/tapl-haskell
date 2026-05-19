@@ -114,3 +114,45 @@ checker expr = case expr of
         put env
         if tl' == tr' then return tl' else throwError ("type mismatch: expected both " ++ show t ++ ", got " ++ show tl' ++ " and " ++ show tr')
       _ -> throwError ("expected a sum type, got " ++ show t)
+
+  -- T-Variant: Γ ⊢ <lj=tj> as <li:Ti> : <li:Ti>
+  Tag lj tj varT -> do
+    tj' <- checker tj
+    case varT of
+      TVariant fields ->
+        case lookup lj fields of
+          Nothing -> throwError ("label " ++ lj ++ " not found in variant type " ++ show varT)
+          Just expectedT ->
+            if tj' == expectedT
+              then return varT
+              else throwError ("variant field type mismatch: expected " ++ show expectedT ++ ", got " ++ show tj')
+      _ -> throwError ("expected a variant type annotation, got " ++ show varT)
+
+  -- T-Case: all branches must typecheck to the same type T
+  CaseVariant e branches -> do
+    t <- checker e
+    case t of
+      TVariant fields -> do
+        -- ensure case is exhaustive (same labels as variant type)
+        let varLabels  = map fst fields
+            caseLabels = map (\(l,_,_) -> l) branches
+        if varLabels /= caseLabels
+          then throwError ("case branches " ++ show caseLabels ++ " do not match variant labels " ++ show varLabels)
+          else do
+            env <- get
+            branchTypes <- mapM (\(li, xi, ti) ->
+              case lookup li fields of
+                Nothing -> throwError ("label " ++ li ++ " not in variant")
+                Just fieldT -> do
+                  put $ (xi, fieldT) : env
+                  bt <- checker ti
+                  put env
+                  return bt
+              ) branches
+            case branchTypes of
+              [] -> throwError "case expression has no branches"
+              (bt:bts) ->
+                if all (== bt) bts
+                  then return bt
+                  else throwError ("case branches have different types: " ++ show branchTypes)
+      _ -> throwError ("expected a variant type, got " ++ show t)
