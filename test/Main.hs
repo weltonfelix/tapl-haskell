@@ -363,6 +363,81 @@ testNestedTuple = TestCase $
     (Right (TTuple [TTuple [TNat, TBool], TBool]))
     (run (Tuple [Tuple [Zero, ETrue], EFalse]))
 
+-- Records (well-typed)
+testRecordEmpty :: Test
+testRecordEmpty = TestCase $
+  assertEqual "{} has type TRecord []"
+    (Right (TRecord []))
+    (run (Record []))
+ 
+testRecordBasic :: Test
+testRecordBasic = TestCase $
+  assertEqual "{x=true, y=zero} has type {x:Bool, y:Nat}"
+    (Right (TRecord [("x", TBool), ("y", TNat)]))
+    (run (Record [("x", ETrue), ("y", Zero)]))
+ 
+testRecordFunctionField :: Test
+testRecordFunctionField = TestCase $
+  assertEqual "{f=\\x:Bool.x} has type {f:Bool->Bool}"
+    (Right (TRecord [("f", TBool `TArrow` TBool)]))
+    (run (Record [("f", Abs ("x", TBool) (Var "x"))]))
+ 
+testRecordNested :: Test
+testRecordNested = TestCase $
+  assertEqual "{a={b=zero}} has type {a:{b:Nat}}"
+    (Right (TRecord [("a", TRecord [("b", TNat)])]))
+    (run (Record [("a", Record [("b", Zero)])]))
+ 
+-- Records (ill-typed)
+testRecordIllTypedField :: Test
+testRecordIllTypedField = TestCase $
+  case run (Record [("x", Succ ETrue)]) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+ 
+-- RecordProj (well-typed)
+testRecordProjFirst :: Test
+testRecordProjFirst = TestCase $
+  assertEqual "{x=true, y=zero}.x has type TBool"
+    (Right TBool)
+    (run (RecordProj (Record [("x", ETrue), ("y", Zero)]) "x"))
+ 
+testRecordProjSecond :: Test
+testRecordProjSecond = TestCase $
+  assertEqual "{x=true, y=zero}.y has type TNat"
+    (Right TNat)
+    (run (RecordProj (Record [("x", ETrue), ("y", Zero)]) "y"))
+ 
+testRecordProjNested :: Test
+testRecordProjNested = TestCase $
+  assertEqual "{a={b=zero}}.a.b has type TNat"
+    (Right TNat)
+    (run (RecordProj
+           (RecordProj (Record [("a", Record [("b", Zero)])]) "a")
+           "b"))
+ 
+testRecordProjThroughAbs :: Test
+testRecordProjThroughAbs = TestCase $
+  assertEqual "(\\r:{x:Nat}. r.x) {x=zero} has type TNat"
+    (Right TNat)
+    (run (App
+           (Abs ("r", TRecord [("x", TNat)]) (RecordProj (Var "r") "x"))
+           (Record [("x", Zero)])))
+ 
+-- RecordProj (ill-typed)
+testRecordProjMissingLabel :: Test
+testRecordProjMissingLabel = TestCase $
+  case run (RecordProj (Record [("x", ETrue)]) "y") of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+ 
+testRecordProjFromNonRecord :: Test
+testRecordProjFromNonRecord = TestCase $
+  case run (RecordProj ETrue "x") of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+
 tests :: Test
 tests = TestList
   [ TestLabel "ETrue"                testTrue
@@ -419,6 +494,17 @@ tests = TestList
   , TestLabel "Projection Out Of Bounds" testProjectionOutOfBounds
   , TestLabel "Projection Non Tuple"     testProjectionNonTuple
   , TestLabel "Nested Tuple" testNestedTuple
+  , TestLabel "Record empty"              testRecordEmpty
+  , TestLabel "Record basic"              testRecordBasic
+  , TestLabel "Record function field"     testRecordFunctionField
+  , TestLabel "Record nested"             testRecordNested
+  , TestLabel "Record ill-typed field"    testRecordIllTypedField
+  , TestLabel "RecordProj first"          testRecordProjFirst
+  , TestLabel "RecordProj second"         testRecordProjSecond
+  , TestLabel "RecordProj nested"         testRecordProjNested
+  , TestLabel "RecordProj through abs"    testRecordProjThroughAbs
+  , TestLabel "RecordProj missing label"  testRecordProjMissingLabel
+  , TestLabel "RecordProj from non-record" testRecordProjFromNonRecord
   ]
 
 main :: IO ()
